@@ -56,7 +56,7 @@ export default function AppShell() {
 
         {showTabs && (
           <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-[700] mx-auto w-full max-w-[440px] px-4 pb-[max(12px,env(safe-area-inset-bottom))] lg:absolute">
-            <div className="glass-strong flex justify-around rounded-[28px] px-2 py-2 shadow-[0_20px_40px_-12px_rgb(0_0_0/0.7)]">
+            <div className="glass-strong flex justify-around rounded-[28px] !bg-[rgb(10_32_58/0.88)] px-2 py-2 shadow-[0_20px_40px_-12px_rgb(0_0_0/0.7)]">
               {TABS.map(({ to, label, icon: Icon, end }) => (
                 <NavLink key={to} to={to} end={end}
                   className={({ isActive }) => `flex flex-1 flex-col items-center gap-1 rounded-2xl py-1.5 text-[11px] font-semibold transition ${isActive ? 'text-sand' : 'text-shell/60 hover:text-shell'}`}>

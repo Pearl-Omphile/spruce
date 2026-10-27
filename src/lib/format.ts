@@ -34,8 +34,12 @@ export const todayISO = (plusDays = 0) => {
 }
 
 /** Turn a Supabase/Postgres error into a sentence for the UI. */
-export const errorText = (e: unknown) =>
-  e && typeof e === 'object' && 'message' in e ? String((e as { message: string }).message) : 'Something went wrong. Try again.'
+export function errorText(e: unknown) {
+  if (!e || typeof e !== 'object') return 'Something went wrong. Try again.'
+  const { code, message } = e as { code?: string; message?: string }
+  if (code === '23P01') return 'Someone just booked that time. Pick another time or cleaner.'
+  return message ?? 'Something went wrong. Try again.'
+}
 
 export function greeting() {
   const h = new Date().getHours()

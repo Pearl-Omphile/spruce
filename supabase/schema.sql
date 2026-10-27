@@ -4,6 +4,8 @@
 -- Safe to re-run: it drops and recreates the app's tables.
 -- =====================================================================
 
+create extension if not exists btree_gist;
+
 drop table if exists public.reviews cascade;
 drop table if exists public.bookings cascade;
 drop table if exists public.cleaners cascade;
@@ -49,6 +51,10 @@ create table public.cleaners (
   services          text[] not null default '{}',
   years_experience  int not null default 0 check (years_experience between 0 and 60),
   is_available      boolean not null default true,
+  -- Working schedule the cleaner chooses. Days: 0 = Sunday ... 6 = Saturday
+  work_days         smallint[] not null default '{1,2,3,4,5,6}',
+  work_start        time not null default '07:00',
+  work_end          time not null default '17:00' check (work_end > work_start),
   is_demo           boolean not null default false,
   rating_avg        numeric(2,1) not null default 0,
   rating_count      int not null default 0,
@@ -78,6 +84,16 @@ create table public.bookings (
 );
 create index on public.bookings (client_id);
 create index on public.bookings (cleaner_id);
+
+-- The time a booking occupies (computed after the insert trigger has set hours)
+alter table public.bookings add column slot tsrange generated always as
+  (tsrange(scheduled_date + start_time, scheduled_date + start_time + make_interval(hours => hours))) stored;
+
+-- No double booking: one cleaner can't have two active bookings that overlap.
+-- Enforced by the database itself, so it holds even if two people book at the same moment.
+alter table public.bookings add constraint no_double_booking
+  exclude using gist (cleaner_id with =, slot with &&)
+  where (status in ('pending', 'accepted'));
 
 -- ---------------------------------------------------------------------
 -- Reviews: clients rate cleaners after a completed booking
@@ -140,6 +156,15 @@ begin
   new.addons := array(select distinct unnest(new.addons));
   select coalesce(sum(public.addon_price(a)), 0) into extras from unnest(new.addons) a;
   new.hours := public.estimate_hours(new.service, new.bedrooms, new.bathrooms);
+
+  -- Must fit inside the cleaner's chosen working days and hours
+  if not (extract(dow from new.scheduled_date)::smallint = any(c.work_days)) then
+    raise exception '% doesn''t work on %s', c.display_name, trim(to_char(new.scheduled_date, 'Day'));
+  end if;
+  if new.start_time < c.work_start or new.start_time + make_interval(hours => new.hours) > c.work_end then
+    raise exception '% works % to %, and this clean takes % hours', c.display_name,
+      to_char(c.work_start, 'HH24:MI'), to_char(c.work_end, 'HH24:MI'), new.hours;
+  end if;
   new.total_price := c.hourly_rate * new.hours + extras;
   new.status := case when c.is_demo then 'accepted' else 'pending' end;
   new.created_at := now();
@@ -211,6 +236,16 @@ end $$;
 create trigger review_rating after insert on public.reviews
   for each row execute function public.after_review_insert();
 
+-- Busy times for a day: which cleaners are booked when. Returns times only,
+-- never who booked or where, so the app can show who is free.
+create or replace function public.busy_slots(day date)
+returns table (cleaner_id uuid, start_time time, hours int)
+language sql stable security definer set search_path = public as $$
+  select b.cleaner_id, b.start_time, b.hours from public.bookings b
+  where b.scheduled_date = day and b.status in ('pending', 'accepted')
+$$;
+grant execute on function public.busy_slots(date) to anon, authenticated;
+
 -- =====================================================================
 -- Row Level Security
 -- =====================================================================
@@ -253,7 +288,7 @@ create policy "write review" on public.reviews for insert to authenticated
 
 -- Column-level permissions: users can't edit ratings, prices or ownership
 revoke update on public.cleaners from anon, authenticated;
-grant update (display_name, bio, hourly_rate, suburb, city, lat, lng, services, years_experience, is_available)
+grant update (display_name, bio, hourly_rate, suburb, city, lat, lng, services, years_experience, is_available, work_days, work_start, work_end)
   on public.cleaners to authenticated;
 revoke update on public.bookings from anon, authenticated;
 grant update (status) on public.bookings to authenticated;

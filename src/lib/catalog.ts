@@ -45,4 +45,4 @@ export function estimateHours(serviceId: string, beds: number, baths: number) {
 
 export const addonsTotal = (ids: string[]) => ids.reduce((t, id) => t + (addonById(id)?.price ?? 0), 0)
 
-export const TIME_SLOTS = ['07:00', '08:00', '09:00', '10:00', '12:00', '14:00']
+export const TIME_SLOTS = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00']

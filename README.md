@@ -15,6 +15,12 @@
 4. Get matched: nearby cleaners ranked by rating and distance, with a "Best match" and the full price for each
 5. Review the price breakdown and confirm. Pay on the day.
 
+**Availability and no double booking**
+- Cleaners choose their working days and hours (e.g. Mon to Fri, 08:00 to 16:00)
+- The booking flow only offers cleaners who are free for the whole job; busy ones show why ("Booked from 09:00", "Doesn't work Sundays")
+- When you book a specific cleaner, the date and time pickers grey out the times they can't do
+- The database itself refuses overlapping bookings with a Postgres **exclusion constraint** on `(cleaner_id, time range)`, so two people pressing "Confirm" at the same moment can't both get the slot. Cancelled or declined bookings free the time again.
+
 **Also**
 - Explore tab with a map of cleaners, filter by city, "near me", service, rating or price
 - Cleaner profiles with stats, services, service area and reviews
@@ -40,6 +46,7 @@ The browser talks to Supabase directly with the public anon key, so **all the ru
 - **Row Level Security** on every table. A booking is visible only to the client who made it and the cleaner it's for. Anyone can browse cleaner listings and reviews.
 - **Server-side pricing.** On insert, `estimate_hours()` works out the hours from the service and home size, and `total_price = hourly_rate × hours + add-ons` is set by a trigger. Whatever price the browser sends is ignored.
 - **Status machine.** A trigger allows only valid transitions by the right person: cleaner `pending → accepted/declined`, `accepted → completed`; client can cancel, or mark an accepted job as done.
+- **No double booking.** `bookings.slot` is a generated `tsrange`; `exclude using gist (cleaner_id with =, slot with &&) where status in ('pending','accepted')` makes overlaps impossible. The insert trigger also checks the cleaner's working days and hours. `busy_slots(day)` exposes only busy times (no client names or addresses) so the app can show who's free.
 - **Honest ratings.** Reviews are only accepted for the client's own completed booking (one per booking). Column-level grants stop users editing `rating_avg`, `rating_count`, `is_demo` or prices directly.
 - **Privacy.** A cleaner can read a client's profile only if that client has booked them. Reviews store a first name only.
 

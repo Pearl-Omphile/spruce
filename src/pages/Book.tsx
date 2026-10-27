@@ -7,6 +7,7 @@ import { useDraft } from '../context/BookingDraft'
 import { ADDONS, addonById, addonsTotal, estimateHours, SERVICE_LIST, serviceById, TIME_SLOTS } from '../lib/catalog'
 import { distanceKm, errorText, km, niceDate, rand, todayISO } from '../lib/format'
 import { useCleaners, useMyLocation } from '../lib/hooks'
+import { checkFit, scheduleText, useBusy } from '../lib/availability'
 import { supabase } from '../lib/supabase'
 import { CITIES } from '../lib/types'
 
@@ -94,6 +95,12 @@ export function BookSchedule() {
   const navigate = useNavigate()
   const geo = useMyLocation()
   const [touched, setTouched] = useState(false)
+  const { cleaners } = useCleaners()
+  const busy = useBusy(draft.date)
+  const picked = draft.cleanerId ? cleaners.find((c) => c.id === draft.cleanerId) : undefined
+  const hours = draft.service ? estimateHours(draft.service, draft.bedrooms, draft.bathrooms) : 2
+  const dayOff = (d: string) => !!picked && !picked.work_days.includes(new Date(d + 'T00:00:00').getDay())
+  const slotFit = (t: string) => (picked && busy ? checkFit(picked, draft.date, t, hours, busy) : { ok: true as const })
 
   // When location arrives, store it and snap to the nearest city we serve
   useEffect(() => {
@@ -107,6 +114,7 @@ export function BookSchedule() {
   if (!draft.service) return <Navigate to="/book" replace />
 
   const days = Array.from({ length: 14 }, (_, i) => todayISO(i))
+  const timeOk = !picked || (!dayOff(draft.date) && slotFit(draft.time).ok)
   const valid = draft.address.trim().length >= 5
 
   return (
@@ -114,14 +122,22 @@ export function BookSchedule() {
       <TopBar title="Date and place" />
       <Steps at={3} />
       <h2 className="text-3xl">When should we come?</h2>
+      {picked && (
+        <div className="glass mt-4 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm">
+          <span>Showing <b>{picked.display_name}</b>'s free times<span className="block text-xs muted">{scheduleText(picked)}</span></span>
+          <button className="shrink-0 font-semibold text-sand" onClick={() => set({ cleanerId: null })}>Any cleaner</button>
+        </div>
+      )}
 
       <div className="no-scrollbar -mx-5 mt-5 flex gap-2.5 overflow-x-auto px-5 pb-1" role="radiogroup" aria-label="Date">
         {days.map((d) => {
           const dt = new Date(d + 'T00:00:00')
           const on = draft.date === d
+          const off = dayOff(d)
           return (
-            <button key={d} role="radio" aria-checked={on} onClick={() => set({ date: d })}
-              className={`flex w-16 shrink-0 flex-col items-center rounded-3xl border py-3 transition ${on ? 'border-sand bg-sand text-deep' : 'glass'}`}>
+            <button key={d} role="radio" aria-checked={on} disabled={off} onClick={() => set({ date: d })}
+              aria-label={off ? `${dt.toDateString()}, ${picked?.display_name} doesn't work this day` : undefined}
+              className={`flex w-16 shrink-0 flex-col items-center rounded-3xl border py-3 transition disabled:opacity-35 ${on ? 'border-sand bg-sand text-deep' : 'glass'}`}>
               <span className={`text-xs font-semibold ${on ? '' : 'muted'}`}>{dt.toLocaleDateString('en-ZA', { weekday: 'short' })}</span>
               <span className="text-xl font-bold">{dt.getDate()}</span>
               <span className={`text-[11px] ${on ? '' : 'muted'}`}>{dt.toLocaleDateString('en-ZA', { month: 'short' })}</span>
@@ -132,11 +148,20 @@ export function BookSchedule() {
 
       <p className="label mt-6">Start time</p>
       <div className="grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="Start time">
-        {TIME_SLOTS.map((t) => (
-          <button key={t} role="radio" aria-checked={draft.time === t} onClick={() => set({ time: t })}
-            className={`chip justify-center !py-3 ${draft.time === t ? 'chip-on' : 'chip-off'}`}>{t}</button>
-        ))}
+        {TIME_SLOTS.map((t) => {
+          const fit = slotFit(t)
+          return (
+            <button key={t} role="radio" aria-checked={draft.time === t} disabled={!fit.ok} title={fit.ok ? undefined : fit.reason}
+              onClick={() => set({ time: t })}
+              className={`chip justify-center !py-3 disabled:line-through disabled:opacity-35 ${draft.time === t && fit.ok ? 'chip-on' : 'chip-off'}`}>{t}</button>
+          )
+        })}
       </div>
+      {picked && (dayOff(draft.date) || !slotFit(draft.time).ok) && (
+        <p className="mt-3 text-sm text-warn">
+          {dayOff(draft.date) ? `${picked.display_name} doesn't work this day.` : `${(slotFit(draft.time) as { reason: string }).reason}.`} Pick another time, or switch to any cleaner.
+        </p>
+      )}
 
       <h3 className="mt-9 text-2xl">Where?</h3>
       <div className="mt-4 flex flex-col gap-4">
@@ -167,8 +192,8 @@ export function BookSchedule() {
       </div>
 
       <ActionBar>
-        <button className="btn-sand w-full" disabled={!valid} onClick={() => navigate('/book/cleaner')}>
-          {valid ? `${niceDate(draft.date)} at ${draft.time}, choose cleaner` : 'Add your address to continue'}
+        <button className="btn-sand w-full" disabled={!valid || !timeOk} onClick={() => navigate('/book/cleaner')}>
+          {!timeOk ? 'Pick a time that works' : valid ? `${niceDate(draft.date)} at ${draft.time}, choose cleaner` : 'Add your address to continue'}
         </button>
       </ActionBar>
     </>
@@ -181,28 +206,32 @@ const score = (rating: number, distance: number) => rating * 1.5 - distance / 10
 export function BookCleaner() {
   const { draft, set } = useDraft()
   const navigate = useNavigate()
-  const { cleaners, loading, error } = useCleaners()
+  const { cleaners, loading: loadingCleaners, error } = useCleaners()
+  const busy = useBusy(draft.date)
   const origin = draft.coords ?? CITIES[draft.city] ?? CITIES.Johannesburg!
+  const hours = draft.service ? estimateHours(draft.service, draft.bedrooms, draft.bathrooms) : 2
 
   const matches = useMemo(() => cleaners
-    .filter((c) => draft.service && c.services.includes(draft.service) && c.is_available)
-    .map((c) => ({ c, d: distanceKm(origin, [c.lat, c.lng]) }))
+    .filter((c) => draft.service && c.services.includes(draft.service))
+    .map((c) => ({ c, d: distanceKm(origin, [c.lat, c.lng]), fit: checkFit(c, draft.date, draft.time, hours, busy ?? []) }))
     .filter(({ d }) => d <= 60)
-    // Best match: well rated and close by (new cleaners count as 3.5 stars)
-    .sort((a, b) => score(b.c.rating_count ? b.c.rating_avg : 3.5, b.d) - score(a.c.rating_count ? a.c.rating_avg : 3.5, a.d)),
-  [cleaners, draft.service, origin])
+    // Free cleaners first. Best match: well rated and close by (new cleaners count as 3.5 stars)
+    .sort((a, b) => Number(b.fit.ok) - Number(a.fit.ok) ||
+      score(b.c.rating_count ? b.c.rating_avg : 3.5, b.d) - score(a.c.rating_count ? a.c.rating_avg : 3.5, a.d)),
+  [cleaners, draft.service, draft.date, draft.time, hours, busy, origin])
 
   if (!draft.service) return <Navigate to="/book" replace />
-  const hours = estimateHours(draft.service, draft.bedrooms, draft.bathrooms)
+  const loading = loadingCleaners || !busy
   const extras = addonsTotal(draft.addons)
-  const chosen = draft.cleanerId && matches.some((m) => m.c.id === draft.cleanerId) ? draft.cleanerId : matches[0]?.c.id ?? null
+  const free = matches.filter((m) => m.fit.ok)
+  const chosen = draft.cleanerId && free.some((m) => m.c.id === draft.cleanerId) ? draft.cleanerId : free[0]?.c.id ?? null
 
   return (
     <>
       <TopBar title="Choose cleaner" />
       <Steps at={4} />
       <h2 className="text-3xl">Cleaners near you</h2>
-      <p className="mt-1 text-sm muted">{serviceById(draft.service)?.name}, {hours} hours, in {draft.city}. Prices include your extras.</p>
+      <p className="mt-1 text-sm muted">{serviceById(draft.service)?.name}, {niceDate(draft.date)} from {draft.time} for {hours} hours, in {draft.city}. Prices include your extras.</p>
 
       {loading ? <Spinner label="Finding cleaners" /> : error ? (
         <div className="mt-6"><Notice tone="error">Couldn't load cleaners: {error}</Notice></div>
@@ -213,13 +242,22 @@ export function BookCleaner() {
           <button className="btn-glass mt-5" onClick={() => navigate('/book')}>Change service</button>
         </div>
       ) : (
+        <>
+        {free.length === 0 && (
+          <div className="glass mt-6 rounded-3xl p-6 text-center">
+            <p className="serif text-2xl">Everyone's busy then</p>
+            <p className="mt-2 text-sm muted">No cleaner near you is free {niceDate(draft.date)} from {draft.time} for {hours} hours. Try an earlier start or another day.</p>
+            <button className="btn-sand mt-5" onClick={() => navigate('/book/schedule')}>Change time</button>
+          </div>
+        )}
         <ul className="mt-6 flex flex-col gap-3" role="radiogroup" aria-label="Cleaner">
-          {matches.map(({ c, d }, i) => {
+          {matches.map(({ c, d, fit }, i) => {
             const on = chosen === c.id
             return (
               <li key={c.id}>
-                <button role="radio" aria-checked={on} onClick={() => set({ cleanerId: c.id })}
-                  className={`glass flex w-full items-center gap-4 rounded-3xl p-4 text-left transition ${on ? '!border-sand !bg-sand/10' : 'hover:border-white/30'}`}>
+                {i === free.length && <p className={`mb-3 ml-1 text-sm font-semibold muted ${i > 0 ? 'mt-4' : ''}`}>Not free at {draft.time}</p>}
+                <button role="radio" aria-checked={on} disabled={!fit.ok} onClick={() => set({ cleanerId: c.id })}
+                  className={`glass flex w-full items-center gap-4 rounded-3xl p-4 text-left transition disabled:opacity-45 ${on ? '!border-sand !bg-sand/10' : 'hover:border-white/30'}`}>
                   <Avatar name={c.display_name} size={54} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
@@ -227,7 +265,9 @@ export function BookCleaner() {
                       {i === 0 && <span className="rounded-full bg-sand/20 px-2 py-0.5 text-[11px] font-bold text-sand">Best match</span>}
                     </span>
                     <span className="block text-xs muted">{c.suburb}, {km(d)} away, {c.years_experience} yrs experience</span>
-                    <span className="mt-1 block"><Stars value={c.rating_avg} count={c.rating_count} /></span>
+                    {fit.ok
+                      ? <span className="mt-1 block"><Stars value={c.rating_avg} count={c.rating_count} /></span>
+                      : <span className="mt-1 block text-xs font-semibold text-warn">{fit.reason}</span>}
                   </span>
                   <span className="text-right">
                     <span className="block text-lg font-bold">{rand(c.hourly_rate * hours + extras)}</span>
@@ -238,6 +278,7 @@ export function BookCleaner() {
             )
           })}
         </ul>
+        </>
       )}
 
       {chosen && (

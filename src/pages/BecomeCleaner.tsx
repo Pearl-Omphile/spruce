@@ -9,6 +9,7 @@ import { errorText } from '../lib/format'
 import { useMyLocation } from '../lib/hooks'
 import { supabase } from '../lib/supabase'
 import { CITIES, type Cleaner } from '../lib/types'
+import { DAY_SHORT } from '../lib/availability'
 
 export default function BecomeCleaner() {
   const { user, profile, myCleaner, loading, refresh } = useAuth()
@@ -33,6 +34,8 @@ export default function BecomeCleaner() {
   return <CleanerForm key={myCleaner?.id ?? 'new'} existing={myCleaner} defaultName={profile?.full_name ?? ''} userId={user.id} onSaved={refresh} />
 }
 
+const HOURS = Array.from({ length: 15 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`) // 06:00 to 20:00
+
 function CleanerForm({ existing, defaultName, userId, onSaved }: { existing: Cleaner | null; defaultName: string; userId: string; onSaved: () => Promise<void> }) {
   const navigate = useNavigate()
   const geo = useMyLocation()
@@ -47,6 +50,9 @@ function CleanerForm({ existing, defaultName, userId, onSaved }: { existing: Cle
   const [services, setServices] = useState<string[]>(existing?.services ?? ['Standard clean'])
   const [years, setYears] = useState(existing?.years_experience ?? 1)
   const [available, setAvailable] = useState(existing?.is_available ?? true)
+  const [days, setDays] = useState<number[]>(existing?.work_days ?? [1, 2, 3, 4, 5, 6])
+  const [from, setFrom] = useState(existing?.work_start.slice(0, 5) ?? '07:00')
+  const [to, setTo] = useState(existing?.work_end.slice(0, 5) ?? '17:00')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
 
@@ -56,8 +62,10 @@ function CleanerForm({ existing, defaultName, userId, onSaved }: { existing: Cle
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (!services.length) return setMsg({ tone: 'error', text: 'Choose at least one service you offer.' })
+    if (!days.length) return setMsg({ tone: 'error', text: 'Choose at least one day you work.' })
+    if (to <= from) return setMsg({ tone: 'error', text: 'Your finishing time must be after your start time.' })
     setBusy(true); setMsg(null)
-    const row = { display_name: name.trim(), bio: bio.trim(), hourly_rate: rate, city, suburb: suburb.trim(), lat: pos[0], lng: pos[1], services, years_experience: years, is_available: available }
+    const row = { display_name: name.trim(), bio: bio.trim(), hourly_rate: rate, city, suburb: suburb.trim(), lat: pos[0], lng: pos[1], services, years_experience: years, is_available: available, work_days: days, work_start: from, work_end: to }
     const { error } = existing
       ? await supabase.from('cleaners').update(row).eq('id', existing.id)
       : await supabase.from('cleaners').insert({ ...row, user_id: userId })
@@ -99,6 +107,30 @@ function CleanerForm({ existing, defaultName, userId, onSaved }: { existing: Cle
             return <button type="button" key={s.id} onClick={() => toggle(s.id)} aria-pressed={on} className={`chip ${on ? 'chip-on' : 'chip-off'}`}>{on && <Check size={14} />}{s.name}</button>
           })}
         </div>
+      </fieldset>
+
+      <fieldset disabled={busy} className="mt-8 flex flex-col gap-4">
+        <legend className="serif mb-3 text-2xl">When you work</legend>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Working days">
+          {[1, 2, 3, 4, 5, 6, 0].map((d) => {
+            const on = days.includes(d)
+            return (
+              <button type="button" key={d} aria-pressed={on} onClick={() => setDays(on ? days.filter((x) => x !== d) : [...days, d])}
+                className={`chip w-[3.6rem] justify-center ${on ? 'chip-on' : 'chip-off'}`}>{DAY_SHORT[d]}</button>
+            )
+          })}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="label" htmlFor="from">Start</label>
+            <select id="from" className="input" value={from} onChange={(e) => setFrom(e.target.value)}>
+              {HOURS.slice(0, -1).map((h) => <option key={h} className="text-deep">{h}</option>)}
+            </select></div>
+          <div><label className="label" htmlFor="to">Finish</label>
+            <select id="to" className="input" value={to} onChange={(e) => setTo(e.target.value)}>
+              {HOURS.slice(1).map((h) => <option key={h} className="text-deep">{h}</option>)}
+            </select></div>
+        </div>
+        <p className="-mt-1 text-xs muted">Clients can only book you inside these hours, and never for two jobs at once.</p>
       </fieldset>
 
       <fieldset disabled={busy} className="mt-8 flex flex-col gap-4">

@@ -28,6 +28,10 @@ export interface Cleaner {
   services: string[]
   years_experience: number
   is_available: boolean
+  /** 0 = Sunday ... 6 = Saturday */
+  work_days: number[]
+  work_start: string
+  work_end: string
   is_demo: boolean
   rating_avg: number
   rating_count: number

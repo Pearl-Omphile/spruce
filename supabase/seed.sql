@@ -22,6 +22,12 @@ values
   ('Nokuthula G.','Coastal homes around Umhlanga. Sliding doors and windows a speciality.',                      95,  'Umhlanga',     'Durban',       -29.7230, 31.0840, '{"Standard clean","Windows","Deep clean"}', 7, true),
   ('Priya N.',    'Offices and homes in Berea and Morningside. Same-week availability.',                         85,  'Morningside',  'Durban',       -29.8250, 31.0130, '{"Standard clean","Office clean","Laundry & ironing"}', 5, true);
 
+-- Varied working schedules so availability is visible in the demo
+update public.cleaners set work_days = '{1,2,3,4,5}', work_start = '08:00', work_end = '16:00' where display_name in ('Grace P.', 'Busisiwe R.', 'Priya N.');
+update public.cleaners set work_days = '{0,1,2,3,4,5,6}', work_start = '07:00', work_end = '18:00' where display_name in ('Thandi M.', 'Amahle Z.');
+update public.cleaners set work_days = '{2,3,4,5,6}', work_start = '09:00', work_end = '17:00' where display_name in ('Sipho N.', 'Fatima S.');
+update public.cleaners set work_days = '{1,3,5,6}', work_start = '07:00', work_end = '15:00' where display_name in ('Ruth A.', 'Nokuthula G.');
+
 -- Sample reviews (attached to demo cleaners only)
 insert into public.reviews (cleaner_id, reviewer_name, rating, comment)
 select c.id, r.name, r.rating, r.comment

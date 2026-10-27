@@ -1,4 +1,4 @@
-import { Briefcase, MapPin, Star } from 'lucide-react'
+import { Briefcase, Clock, MapPin, Star } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import CleanerMap from '../components/CleanerMap'
@@ -6,6 +6,7 @@ import { ActionBar, Avatar, Notice, Spinner, Stars, TopBar } from '../components
 import { useAuth } from '../context/AuthContext'
 import { useDraft } from '../context/BookingDraft'
 import { serviceById } from '../lib/catalog'
+import { scheduleText } from '../lib/availability'
 import { rand } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import type { Cleaner, Review } from '../lib/types'
@@ -48,6 +49,7 @@ export default function CleanerProfile() {
         <div className="relative mx-auto w-fit"><Avatar name={c.display_name} size={96} /></div>
         <h1 className="relative mt-4 text-[2.2rem]">{c.display_name}</h1>
         <p className="relative mt-1 flex items-center justify-center gap-1.5 text-sm muted"><MapPin size={15} /> {c.suburb}, {c.city}</p>
+        <p className="relative mt-1 flex items-center justify-center gap-1.5 text-sm muted"><Clock size={15} /> {scheduleText(c)}</p>
         <div className="relative mt-5 grid grid-cols-3 divide-x divide-white/10 rounded-2xl bg-white/5 py-3">
           <div><p className="flex items-center justify-center gap-1 text-lg font-bold"><Star size={16} className="fill-warn text-warn" />{c.rating_count ? Number(c.rating_avg).toFixed(1) : 'New'}</p><p className="text-xs muted">{c.rating_count} reviews</p></div>
           <div><p className="flex items-center justify-center gap-1 text-lg font-bold"><Briefcase size={15} />{c.years_experience}</p><p className="text-xs muted">years</p></div>
