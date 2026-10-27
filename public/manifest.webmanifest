@@ -1,0 +1,17 @@
+{
+  "name": "Spruce: book a cleaner",
+  "short_name": "Spruce",
+  "description": "Book a rated home cleaner near you in South Africa, or earn as one.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#071C33",
+  "theme_color": "#0E2E52",
+  "categories": ["lifestyle", "productivity"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

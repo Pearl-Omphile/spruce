@@ -1,133 +1,141 @@
-import { LocateFixed } from 'lucide-react'
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Stars } from '../components/bits'
-import CleanerMap from '../components/CleanerMap'
+import { ArrowRight, Bell, CalendarClock, Search, Sparkles } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Avatar, Stars, StatusPill } from '../components/ui'
+import { useAuth } from '../context/AuthContext'
+import { useDraft } from '../context/BookingDraft'
+import { SERVICE_LIST, serviceById } from '../lib/catalog'
+import { greeting, niceDate, niceTime, rand } from '../lib/format'
 import { useCleaners } from '../lib/hooks'
-import { rand } from '../lib/format'
-import { CITIES } from '../lib/types'
+import { supabase } from '../lib/supabase'
+import type { Booking } from '../lib/types'
+import { WELCOME_KEY } from './Welcome'
+
+const seenWelcome = () => {
+  try { return localStorage.getItem(WELCOME_KEY) === '1' } catch { return true }
+}
 
 export default function Home() {
+  const { user, profile } = useAuth()
+  const { set, reset } = useDraft()
   const { cleaners } = useCleaners()
   const navigate = useNavigate()
-  const [city, setCity] = useState('Johannesburg')
-  const top = cleaners.filter((c) => c.rating_count > 0).slice(0, 3)
-  const cityCount = cleaners.filter((c) => c.city === city).length
+  const [q, setQ] = useState('')
+  const [next, setNext] = useState<Booking | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    supabase.from('bookings')
+      .select('*, cleaner:cleaners(id, display_name, suburb, city, is_demo)')
+      .eq('client_id', user.id).in('status', ['pending', 'accepted'])
+      .gte('scheduled_date', new Date().toISOString().slice(0, 10))
+      .order('scheduled_date').limit(1)
+      .then(({ data }) => setNext((data?.[0] as Booking) ?? null))
+  }, [user])
+
+  if (!seenWelcome()) return <Navigate to="/welcome" replace />
+
+  const first = profile?.full_name?.split(' ')[0]
+  const services = SERVICE_LIST.filter((s) => (s.name + s.blurb).toLowerCase().includes(q.toLowerCase()))
+  const top = cleaners.filter((c) => c.rating_count > 0 && c.is_available).slice(0, 6)
+
+  const startBooking = (serviceId?: string) => {
+    reset()
+    if (serviceId) {
+      set({ service: serviceId })
+      navigate('/book/details')
+    } else navigate('/book')
+  }
 
   return (
-    <>
-      {/* Hero: the live map is the hero's one bold element */}
-      <section className="bg-mist">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_1.1fr] lg:items-center lg:py-20">
-          <div>
-            <h1 className="text-[clamp(2.75rem,6vw,4.75rem)] font-extrabold">Get your Saturday back.</h1>
-            <p className="mt-5 max-w-md text-lg text-ink-soft">
-              Book a rated, local cleaner in a few taps. See who's near you, what they charge per hour, and what other people say about them.
-            </p>
+    <div className="pt-[max(18px,env(safe-area-inset-top))]">
+      <header className="flex items-center justify-between">
+        <div>
+          <p className="text-sm muted">{greeting()}{first ? `, ${first}` : ''}</p>
+          <h1 className="mt-1 text-[2rem]">Let's refresh your space</h1>
+        </div>
+        <Link to="/profile" aria-label="Profile">
+          {first ? <Avatar name={profile!.full_name} size={46} /> : <span className="icon-btn"><Bell size={19} /></span>}
+        </Link>
+      </header>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button className="btn-primary text-base" onClick={() => navigate('/find?near=me')}>
-                <LocateFixed size={18} aria-hidden /> Find cleaners near me
-              </button>
-              <Link to="/become-a-cleaner" className="btn-ghost text-base">
-                Earn as a cleaner
-              </Link>
-            </div>
+      <label className="glass mt-6 flex items-center gap-3 rounded-full px-5 py-3.5">
+        <Search size={18} className="text-shell/60" aria-hidden />
+        <span className="sr-only">Search services</span>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="What do you need cleaned?"
+          className="w-full bg-transparent text-shell placeholder:text-shell/45 focus:outline-none" />
+      </label>
 
-            <div className="mt-8">
-              <p className="text-sm font-semibold text-ink-soft">Or browse a city</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {Object.keys(CITIES).map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCity(c)}
-                    aria-pressed={city === c}
-                    className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${
-                      city === c ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink-soft hover:border-jac'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+      {/* Hero action */}
+      <section className="glass relative mt-6 overflow-hidden rounded-[32px] p-6">
+        <div aria-hidden className="absolute -right-10 -top-10 size-48 rounded-full bg-gradient-to-br from-sand/45 to-transparent blur-2xl" />
+        <div aria-hidden className="glass-strong absolute -right-4 top-6 grid size-28 place-items-center rounded-full">
+          <Sparkles size={44} className="text-sand" strokeWidth={1.4} />
+        </div>
+        <p className="relative text-xs font-bold text-sand">Upfront prices, rated cleaners</p>
+        <h2 className="relative mt-2 max-w-[13rem] text-[1.9rem] leading-[1.05]">Book a clean in about a minute</h2>
+        <button className="btn-sand relative mt-5 !py-3" onClick={() => startBooking()}>
+          Book a clean <ArrowRight size={17} />
+        </button>
+      </section>
 
-          <div className="relative">
-            <CleanerMap
-              cleaners={cleaners}
-              center={CITIES[city]!}
-              zoom={city === 'Johannesburg' ? 10 : 12}
-              className="h-[360px] w-full overflow-hidden rounded-3xl border border-line shadow-[0_24px_60px_-28px_rgb(36_19_61/0.45)] sm:h-[460px]"
-            />
-            <Link
-              to={`/find?city=${encodeURIComponent(city)}`}
-              className="absolute bottom-4 left-4 z-[500] rounded-full bg-white px-4 py-2 text-sm font-semibold shadow-md hover:text-jac-deep"
-            >
-              {cityCount ? `See all ${cityCount} cleaners in ${city}` : `Browse ${city}`}
-            </Link>
-          </div>
+      {next && (
+        <Link to="/bookings" className="glass mt-4 flex items-center gap-4 rounded-3xl p-4">
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-sky/15 text-sky"><CalendarClock size={22} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">{serviceById(next.service)?.name ?? next.service} with {next.cleaner?.display_name}</span>
+            <span className="block text-sm muted">{niceDate(next.scheduled_date)} at {niceTime(next.start_time)}</span>
+          </span>
+          <StatusPill status={next.status} />
+        </Link>
+      )}
+
+      <section className="mt-8">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-2xl">Services</h2>
+          <span className="text-xs muted">Tap to book</span>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          {services.map((s) => (
+            <button key={s.id} onClick={() => startBooking(s.id)}
+              className="glass flex flex-col items-center gap-2.5 rounded-3xl px-2 py-4 text-center transition active:scale-95 hover:border-white/30">
+              <span className="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-sand/30 to-sky/10 text-sand">
+                <s.icon size={22} strokeWidth={1.7} />
+              </span>
+              <span className="text-[13px] font-semibold leading-tight">{s.name}</span>
+            </button>
+          ))}
+          {services.length === 0 && <p className="col-span-3 text-sm muted">No service matches “{q}”. Try “deep”, “windows” or “laundry”.</p>}
         </div>
       </section>
 
-      {/* How it works: a real sequence, so numbered */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
-        <h2 className="text-4xl font-extrabold sm:text-5xl">How booking works</h2>
-        <ol className="mt-10 grid gap-8 md:grid-cols-3">
-          {[
-            ['Pick a cleaner', 'Filter by distance, price and rating. Every profile shows their services, experience and reviews.'],
-            ['Choose a time', 'Tell them the date, how many hours and your address. You see the full price in Rands before you book.'],
-            ['Rate the clean', "When the job's done, mark it complete and leave a star rating that helps the next person choose."],
-          ].map(([t, d], i) => (
-            <li key={t} className="border-t-2 border-ink pt-5">
-              <span className="font-display text-5xl font-extrabold text-jac">{i + 1}</span>
-              <h3 className="mt-3 text-2xl font-bold">{t}</h3>
-              <p className="mt-2 text-ink-soft">{d}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-
       {top.length > 0 && (
-        <section className="border-y border-line bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <h2 className="text-3xl font-extrabold sm:text-4xl">Highly rated this month</h2>
-              <Link to="/find" className="font-semibold text-jac-deep hover:underline">
-                See every cleaner
-              </Link>
-            </div>
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              {top.map((c) => (
-                <Link key={c.id} to={`/cleaners/${c.id}`} className="rounded-2xl bg-mist p-6 transition-colors hover:bg-bloom">
+        <section className="mt-9">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-2xl">Top rated cleaners</h2>
+            <Link to="/explore" className="text-sm font-semibold text-sand">See all</Link>
+          </div>
+          <div className="no-scrollbar -mx-5 mt-4 flex snap-x gap-3 overflow-x-auto px-5 pb-2">
+            {top.map((c) => (
+              <Link key={c.id} to={`/cleaners/${c.id}`} className="glass w-44 shrink-0 snap-start rounded-3xl p-4">
+                <Avatar name={c.display_name} size={52} />
+                <p className="mt-3 font-bold">{c.display_name}</p>
+                <p className="text-xs muted">{c.suburb}, {c.city}</p>
+                <div className="mt-3 flex items-center justify-between">
                   <Stars value={c.rating_avg} count={c.rating_count} />
-                  <p className="mt-3 font-display text-2xl font-bold">{c.display_name}</p>
-                  <p className="text-muted">{c.suburb}, {c.city}</p>
-                  <p className="mt-4 text-ink-soft">{c.bio}</p>
-                  <p className="mt-4 font-semibold">{rand(c.hourly_rate)} per hour</p>
-                </Link>
-              ))}
-            </div>
+                  <span className="text-sm font-bold text-sand">{rand(c.hourly_rate)}<span className="text-xs font-normal muted">/hr</span></span>
+                </div>
+              </Link>
+            ))}
           </div>
         </section>
       )}
 
-      {/* Supply side */}
-      <section className="bg-ink text-white">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:px-6 md:grid-cols-[1.4fr_1fr] md:items-center lg:py-20">
-          <div>
-            <h2 className="text-4xl font-extrabold sm:text-5xl">Clean on your own terms.</h2>
-            <p className="mt-4 max-w-lg text-lg text-white/75">
-              Set your own hourly rate, choose the services you offer and the area you work in. Accept the jobs that suit you and build a rating clients can trust.
-            </p>
-          </div>
-          <div className="md:justify-self-end">
-            <Link to="/become-a-cleaner" className="btn-accent px-7 py-3.5 text-lg">
-              Create your cleaner profile
-            </Link>
-          </div>
-        </div>
-      </section>
-    </>
+      <Link to="/profile/cleaner" className="glass mt-8 block rounded-[32px] p-6">
+        <p className="serif text-2xl">Earn as a cleaner</p>
+        <p className="mt-2 text-sm muted">Set your own rate and area. Accept the jobs that suit you.</p>
+        <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-sand">Create your profile <ArrowRight size={15} /></span>
+      </Link>
+    </div>
   )
 }

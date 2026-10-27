@@ -41,6 +41,9 @@ export interface Booking {
   scheduled_date: string
   start_time: string
   hours: number
+  bedrooms: number
+  bathrooms: number
+  addons: string[]
   address: string
   notes: string
   total_price: number

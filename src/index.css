@@ -1,66 +1,110 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* Glass ocean: deep blue night with warm sand accents */
 @theme {
-  --color-ink: #24133D;
-  --color-ink-soft: #4A3A63;
-  --color-muted: #6E6383;
-  --color-jac: #8A6BE0;        /* jacaranda: primary accent */
-  --color-jac-deep: #6A4BC4;
-  --color-bloom: #E4DAFB;      /* light jacaranda */
-  --color-mist: #F6F3FD;       /* page tint */
-  --color-line: #E3DDEF;
-  --color-sun: #F2B92B;        /* rating stars only */
-  --color-ok: #23805E;
-  --color-warn: #B4610E;
-  --color-bad: #B4233C;
+  --color-deep: #071C33;
+  --color-ocean: #0E2E52;
+  --color-tide: #1D4E80;
+  --color-sky: #8DBDEB;
+  --color-sand: #E8D5B5;
+  --color-sand-deep: #CDB48C;
+  --color-shell: #F6EFE3;      /* main text on glass */
+  --color-ok: #7FD8B0;
+  --color-warn: #F2C46B;
+  --color-bad: #F29B9B;
 
-  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "DM Serif Display", ui-serif, Georgia, serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
 }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; background: var(--color-deep); }
 body {
-  background: #fff;
-  color: var(--color-ink);
+  min-height: 100dvh;
+  color: var(--color-shell);
   font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  background:
+    radial-gradient(60rem 40rem at 85% -10%, rgb(141 189 235 / 0.28), transparent 60%),
+    radial-gradient(40rem 32rem at -10% 35%, rgb(232 213 181 / 0.16), transparent 60%),
+    radial-gradient(50rem 40rem at 70% 110%, rgb(29 78 128 / 0.65), transparent 60%),
+    linear-gradient(170deg, #0E2E52 0%, #071C33 70%);
+  background-attachment: fixed;
 }
 
-h1, h2, h3 { font-family: var(--font-display); line-height: 1.08; letter-spacing: -0.02em; }
+h1, h2, h3, .serif { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; }
 
-:focus-visible { outline: 3px solid var(--color-jac); outline-offset: 2px; border-radius: 6px; }
-
+:focus-visible { outline: 2px solid var(--color-sand); outline-offset: 2px; border-radius: 10px; }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
-/* Reusable bits */
+/* Frosted glass panels */
+@utility glass {
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.11), rgb(255 255 255 / 0.04));
+  border: 1px solid rgb(255 255 255 / 0.14);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 18px 40px -24px rgb(0 0 0 / 0.6);
+}
+@utility glass-strong {
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.07));
+  border: 1px solid rgb(255 255 255 / 0.2);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+}
 @layer components {
-  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-ink text-white hover:bg-ink-soft; }
-  .btn-accent  { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-jac text-white hover:bg-jac-deep; }
-  .btn-ghost   { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-line bg-white text-ink hover:border-jac; }
-  .input {
-    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-ink placeholder:text-muted/70 focus:border-jac focus:outline-none focus:ring-2 focus:ring-bloom;
+  .btn-sand {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-sand px-6 py-3.5 font-bold text-deep transition active:scale-[0.98] hover:bg-[#F1E2C7] disabled:opacity-50 disabled:active:scale-100;
+    box-shadow: 0 10px 30px -12px rgb(232 213 181 / 0.6);
   }
-  .label { @apply mb-1.5 block text-sm font-semibold text-ink-soft; }
+  .btn-glass {
+    @apply glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-semibold text-shell transition active:scale-[0.98] hover:border-white/30 disabled:opacity-50;
+  }
+  .icon-btn {
+    @apply glass grid size-11 place-items-center rounded-full text-shell transition active:scale-95;
+  }
+  .input {
+    @apply w-full rounded-2xl border border-white/15 bg-white/[0.06] px-4 py-3.5 text-shell placeholder:text-shell/45 focus:border-sand/70 focus:bg-white/[0.09] focus:outline-none;
+  }
+  .label { @apply mb-2 block text-sm font-semibold text-shell/75; }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition;
+  }
+  .chip-off { @apply border-white/15 bg-white/[0.05] text-shell/80 hover:border-white/30; }
+  .chip-on  { @apply border-sand bg-sand text-deep; }
+  .muted { color: rgb(246 239 227 / 0.62); }
 }
 
-/* Leaflet: pins drawn as divIcons */
+/* Hide scrollbars on horizontal carousels */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* Map pins */
 .spruce-pin {
   display: grid; place-items: center;
-  width: 40px; height: 40px; border-radius: 50% 50% 50% 4px;
+  width: 42px; height: 42px; border-radius: 50% 50% 50% 6px;
   transform: rotate(-45deg);
-  background: var(--color-jac); border: 3px solid #fff;
-  box-shadow: 0 4px 12px rgb(36 19 61 / 0.35);
+  background: #E8D5B5; border: 2px solid #fff;
+  box-shadow: 0 6px 16px rgb(7 28 51 / 0.45);
 }
-.spruce-pin span { transform: rotate(45deg); color: #fff; font: 700 10.5px/1 var(--font-sans); }
-.spruce-pin.is-active { background: var(--color-ink); }
+.spruce-pin span { transform: rotate(45deg); color: #071C33; font: 800 10.5px/1 var(--font-sans); }
+.spruce-pin.is-active { background: #0E2E52; }
+.spruce-pin.is-active span { color: #E8D5B5; }
 .spruce-me {
   width: 18px; height: 18px; border-radius: 50%;
-  background: #2E7DF6; border: 3px solid #fff; box-shadow: 0 0 0 6px rgb(46 125 246 / 0.25);
+  background: #8DBDEB; border: 3px solid #fff; box-shadow: 0 0 0 7px rgb(141 189 235 / 0.3);
 }
-.leaflet-container { font-family: var(--font-sans); }
-.leaflet-popup-content { margin: 12px 14px; }
+.leaflet-container { font-family: var(--font-sans); background: #0E2E52; }
+.leaflet-popup-content-wrapper { border-radius: 16px; }
+.leaflet-popup-content { margin: 12px 14px; color: #071C33; }
+.leaflet-control-attribution { font-size: 9px; }
+
+/* Entrance for the welcome screen only */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 0.7s cubic-bezier(.2,.7,.2,1) both; }

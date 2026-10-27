@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { isConfigured, supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import type { Cleaner, Profile } from '../lib/types'
 
 interface AuthState {
@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [myCleaner, setMyCleaner] = useState<Cleaner | null>(null)
-  const [loading, setLoading] = useState(isConfigured)
+  const [loading, setLoading] = useState(true)
 
   const load = useCallback(async (s: Session | null) => {
     if (!s) {
@@ -36,7 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (!isConfigured) return
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session)
       await load(data.session)

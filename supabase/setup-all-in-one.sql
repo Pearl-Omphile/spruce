@@ -1,4 +1,5 @@
 -- Spruce: schema + demo data in one file. Paste into Supabase SQL Editor and click Run.
+-- Safe to re-run: it resets the app's tables.
 
 -- =====================================================================
 -- Spruce database schema
@@ -67,7 +68,10 @@ create table public.bookings (
   service         text not null,
   scheduled_date  date not null,
   start_time      time not null,
-  hours           int  not null check (hours between 2 and 10),
+  bedrooms        int  not null default 1 check (bedrooms between 1 and 8),
+  bathrooms       int  not null default 1 check (bathrooms between 1 and 6),
+  addons          text[] not null default '{}',
+  hours           int  not null default 2 check (hours between 2 and 10),
   address         text not null check (char_length(address) between 5 and 200),
   notes           text not null default '' check (char_length(notes) <= 500),
   total_price     int  not null default 0,
@@ -97,10 +101,34 @@ create index on public.reviews (cleaner_id);
 -- Business rules (enforced in the database, not just the UI)
 -- =====================================================================
 
--- New booking: server sets price from the cleaner's rate; demo cleaners auto-accept
+-- Pricing: hours depend on service and home size; add-ons are fixed prices.
+-- Keep in sync with src/lib/catalog.ts (the app shows the same quote).
+create or replace function public.estimate_hours(svc text, beds int, baths int)
+returns int language sql immutable as $$
+  select least(10, greatest(2, ceil(
+    case svc
+      when 'Standard clean'     then 2 + 0.5 * (beds - 1) + 0.5  * (baths - 1)
+      when 'Deep clean'         then 3 + 1.0 * (beds - 1) + 0.75 * (baths - 1)
+      when 'Move-in / move-out' then 4 + 1.0 * (beds - 1) + 1.0  * (baths - 1)
+      when 'Office clean'       then 3 + 0.5 * (beds - 1) + 0.5  * (baths - 1)
+      when 'Laundry & ironing'  then 3
+      when 'Windows'            then 2 + 0.5 * (beds - 1)
+      else 3
+    end)))::int
+$$;
+
+create or replace function public.addon_price(addon text)
+returns int language sql immutable as $$
+  select case addon
+    when 'oven' then 120 when 'fridge' then 90 when 'cabinets' then 100
+    when 'windows_in' then 150 when 'balcony' then 100 when 'ironing' then 110
+    else null end
+$$;
+
+-- New booking: server works out hours and price; demo cleaners auto-accept
 create or replace function public.before_booking_insert()
 returns trigger language plpgsql security definer set search_path = public as $$
-declare c public.cleaners;
+declare c public.cleaners; extras int;
 begin
   select * into c from public.cleaners where id = new.cleaner_id;
   if c.id is null then raise exception 'Cleaner not found'; end if;
@@ -108,8 +136,14 @@ begin
   if not c.is_available then raise exception 'This cleaner is not taking bookings right now'; end if;
   if new.scheduled_date < current_date then raise exception 'Pick a date from today onwards'; end if;
   if not (new.service = any(c.services)) then raise exception 'This cleaner does not offer that service'; end if;
+  if exists (select 1 from unnest(new.addons) a where public.addon_price(a) is null) then
+    raise exception 'Unknown add-on';
+  end if;
 
-  new.total_price := c.hourly_rate * new.hours;
+  new.addons := array(select distinct unnest(new.addons));
+  select coalesce(sum(public.addon_price(a)), 0) into extras from unnest(new.addons) a;
+  new.hours := public.estimate_hours(new.service, new.bedrooms, new.bathrooms);
+  new.total_price := c.hourly_rate * new.hours + extras;
   new.status := case when c.is_demo then 'accepted' else 'pending' end;
   new.created_at := now();
   return new;

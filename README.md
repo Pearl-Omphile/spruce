@@ -8,24 +8,26 @@
 
 ## Features
 
-**For clients**
-- Map and list of cleaners, filtered by city or **your current location** (distance shown in km)
-- Filter by service and maximum hourly rate; sort by closest, highest rated or cheapest
-- Cleaner profiles with bio, services, experience, service area and reviews
-- Booking form with live price (rate × hours), date, time, address and notes
-- Bookings dashboard: track status, cancel, mark as done, and rate 1–5 stars
+**Booking, Uber-style**
+1. Pick a service: home clean, deep clean, move in / out, office, laundry, windows
+2. Set home size (bedrooms, bathrooms) and extras like inside the oven or fridge
+3. Choose a date from a 14-day strip, a time slot, and your address (or use your location)
+4. Get matched: nearby cleaners ranked by rating and distance, with a "Best match" and the full price for each
+5. Review the price breakdown and confirm. Pay on the day.
 
-**For cleaners**
-- "Become a cleaner" flow: set display name, bio, hourly rate, services and drop a pin for your work area
-- Jobs inbox: accept or decline requests, see the client's name and contact, mark jobs complete
-- Toggle "taking new bookings" when fully booked
-- Average rating updates automatically as reviews come in
+**Also**
+- Explore tab with a map of cleaners, filter by city, "near me", service, rating or price
+- Cleaner profiles with stats, services, service area and reviews
+- Bookings tab (upcoming / past): cancel, mark done, rate 1–5 stars
+- Cleaner mode: create a profile with your rate, services and map pin; accept or decline job requests
+- **Installable on Android and iPhone** as a web app (manifest, icons, offline-ready service worker)
+- Frosted-glass design in deep ocean blue and sand, built mobile-first; on desktop it shows as a phone frame
 
 ## Tech stack
 
 | Layer | Choice |
 | --- | --- |
-| Frontend | React 19, TypeScript, Vite |
+| Frontend | React 19, TypeScript, Vite, installable PWA |
 | Styling | Tailwind CSS v4 |
 | Maps | Leaflet + OpenStreetMap (CARTO tiles), no API key needed |
 | Backend | Supabase: Postgres, Auth (email + password), Row Level Security |
@@ -36,7 +38,7 @@
 The browser talks to Supabase directly with the public anon key, so **all the rules live in the database** (`supabase/schema.sql`), not in the UI:
 
 - **Row Level Security** on every table. A booking is visible only to the client who made it and the cleaner it's for. Anyone can browse cleaner listings and reviews.
-- **Server-side pricing.** A trigger sets `total_price = hourly_rate × hours` on insert, so a client can't send their own price.
+- **Server-side pricing.** On insert, `estimate_hours()` works out the hours from the service and home size, and `total_price = hourly_rate × hours + add-ons` is set by a trigger. Whatever price the browser sends is ignored.
 - **Status machine.** A trigger allows only valid transitions by the right person: cleaner `pending → accepted/declined`, `accepted → completed`; client can cancel, or mark an accepted job as done.
 - **Honest ratings.** Reviews are only accepted for the client's own completed booking (one per booking). Column-level grants stop users editing `rating_avg`, `rating_count`, `is_demo` or prices directly.
 - **Privacy.** A cleaner can read a client's profile only if that client has booked them. Reviews store a first name only.

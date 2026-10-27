@@ -26,8 +26,9 @@ export const niceTime = (t: string) => t.slice(0, 5)
 export const initials = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('')
 
-export const todayISO = () => {
+export const todayISO = (plusDays = 0) => {
   const d = new Date()
+  d.setDate(d.getDate() + plusDays)
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
   return d.toISOString().slice(0, 10)
 }
@@ -35,3 +36,8 @@ export const todayISO = () => {
 /** Turn a Supabase/Postgres error into a sentence for the UI. */
 export const errorText = (e: unknown) =>
   e && typeof e === 'object' && 'message' in e ? String((e as { message: string }).message) : 'Something went wrong. Try again.'
+
+export function greeting() {
+  const h = new Date().getHours()
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
+}
