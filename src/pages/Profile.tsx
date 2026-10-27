@@ -5,6 +5,7 @@ import { Avatar, Notice, Spinner } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { errorText } from '../lib/format'
 import { useInstallPrompt } from '../lib/install'
+import { APK_URL, isNativeApp } from '../lib/platform'
 import { supabase } from '../lib/supabase'
 import { lastSeen } from './Admin'
 
@@ -102,23 +103,27 @@ export default function Profile() {
         </>
       )}
 
-      <p className="mb-2 ml-1 mt-7 text-sm font-semibold muted">Get the app</p>
-      <div className="glass overflow-hidden rounded-[28px]">
-        {install.canPrompt ? (
-          <Row onClick={install.prompt} icon={<Download size={20} />} title="Install Spruce" sub="Adds Spruce to your home screen" />
-        ) : install.installed ? (
-          <Row icon={<Smartphone size={20} />} title="Spruce is installed" sub="Open it from your home screen" right={<span />} />
-        ) : (
-          <div className="flex gap-4 px-4 py-4">
-            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sand/15 text-sand"><Smartphone size={20} /></span>
-            <div className="text-sm">
-              <p className="font-semibold">Add to your home screen</p>
-              <p className="mt-1 muted"><b className="text-shell">iPhone:</b> open in Safari, tap Share, then “Add to Home Screen”.</p>
-              <p className="mt-1 muted"><b className="text-shell">Android:</b> open in Chrome, tap ⋮, then “Install app”.</p>
-            </div>
+      {!isNativeApp && (
+        <>
+          <p className="mb-2 ml-1 mt-7 text-sm font-semibold muted">Get the app</p>
+          <div className="glass divide-y divide-white/10 overflow-hidden rounded-[28px]">
+            <Row onClick={() => { window.location.href = APK_URL }} icon={<Download size={20} />} title="Download for Android" sub="Installs the Spruce app (spruce.apk)" />
+            {install.installed ? (
+              <Row icon={<Smartphone size={20} />} title="Spruce is on your home screen" sub="Open it from there" right={<span />} />
+            ) : install.canPrompt ? (
+              <Row onClick={install.prompt} icon={<Smartphone size={20} />} title="Add to home screen" sub="No download needed" />
+            ) : (
+              <div className="flex gap-4 px-4 py-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sand/15 text-sand"><Smartphone size={20} /></span>
+                <div className="text-sm">
+                  <p className="font-semibold">iPhone: add to your home screen</p>
+                  <p className="mt-1 muted">Open in Safari, tap Share, then “Add to Home Screen”.</p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
       <p className="mt-6 text-center text-xs muted">Spruce is a portfolio project. Bookings are real in the app, but no cleaner will arrive.</p>
     </div>
   )

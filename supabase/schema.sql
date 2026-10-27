@@ -6,6 +6,7 @@
 
 create extension if not exists btree_gist;
 
+drop table if exists public.messages cascade;
 drop table if exists public.complaints cascade;
 drop table if exists public.client_reviews cascade;
 drop table if exists public.reviews cascade;
@@ -39,6 +40,11 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Accounts that existed before this script ran get their profile back
+insert into public.profiles (id, full_name)
+select id, coalesce(raw_user_meta_data->>'full_name', '') from auth.users
+on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------
 -- Cleaners: public listings. user_id is null for seeded demo cleaners.
@@ -305,6 +311,12 @@ returns boolean language sql stable security definer set search_path = public as
     left join public.cleaners c on c.id = b.cleaner_id
     where b.id = bid and (b.client_id = auth.uid() or c.user_id = auth.uid()))
 $$;
+create or replace function public.is_admin_only_viewer(bid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select public.is_admin() and not exists (
+    select 1 from public.bookings b left join public.cleaners c on c.id = b.cleaner_id
+    where b.id = bid and (b.client_id = auth.uid() or c.user_id = auth.uid()))
+$$;
 create or replace function public.is_booking_cleaner(bid uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.bookings b join public.cleaners c on c.id = b.cleaner_id
@@ -428,6 +440,81 @@ end $$;
 create trigger complaint_write before insert or update on public.complaints
   for each row execute function public.before_complaint();
 
+-- ---------------------------------------------------------------------
+-- Chat: the client and the cleaner of a booking can message each other
+-- ---------------------------------------------------------------------
+create table public.messages (
+  id           uuid primary key default gen_random_uuid(),
+  booking_id   uuid not null references public.bookings on delete cascade,
+  sender_id    uuid references auth.users on delete set null,   -- null for demo-cleaner replies
+  sender_role  text not null check (sender_role in ('client', 'cleaner')),
+  body         text not null check (char_length(trim(body)) between 1 and 1000),
+  created_at   timestamptz not null default now(),
+  read_at      timestamptz
+);
+create index on public.messages (booking_id, created_at);
+
+create or replace function public.before_message()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare b public.bookings;
+begin
+  -- Automatic demo replies are inserted by the trigger below; keep them as written
+  if pg_trigger_depth() > 1 then return new; end if;
+  select * into b from public.bookings where id = new.booking_id;
+  if b.id is null then raise exception 'Booking not found'; end if;
+  if b.status in ('declined', 'cancelled') then raise exception 'This booking is closed, so messages are off'; end if;
+  if b.client_id = auth.uid() then new.sender_role := 'client';
+  elsif public.is_booking_cleaner(b.id) then new.sender_role := 'cleaner';
+  else raise exception 'You can only message about your own bookings';
+  end if;
+  new.sender_id := auth.uid();
+  new.body := trim(new.body);
+  new.created_at := now();
+  new.read_at := null;
+  return new;
+end $$;
+create trigger message_insert before insert on public.messages
+  for each row execute function public.before_message();
+
+-- Demo cleaners aren't real people, so they send one friendly automatic reply
+create or replace function public.demo_cleaner_reply()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare c public.cleaners;
+begin
+  if new.sender_role <> 'client' then return new; end if;
+  select cl.* into c from public.bookings b join public.cleaners cl on cl.id = b.cleaner_id where b.id = new.booking_id;
+  if not c.is_demo then return new; end if;
+  if exists (select 1 from public.messages where booking_id = new.booking_id and sender_role = 'cleaner') then return new; end if;
+  insert into public.messages (booking_id, sender_id, sender_role, body, created_at)
+  values (new.booking_id, null, 'cleaner',
+    'Hi, it''s ' || split_part(c.display_name, ' ', 1) || '! Thanks for your message. I''m a demo cleaner on Spruce, so this is an automatic reply. Real cleaners chat with you right here.',
+    now() + interval '1 second');
+  return new;
+end $$;
+create trigger message_demo_reply after insert on public.messages
+  for each row execute function public.demo_cleaner_reply();
+
+-- Mark the other person's messages in a booking as read
+create or replace function public.mark_messages_read(bid uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare my_role text;
+begin
+  select case when b.client_id = auth.uid() then 'client'
+              when public.is_booking_cleaner(b.id) then 'cleaner' end
+    into my_role from public.bookings b where b.id = bid;
+  if my_role is null then return; end if;
+  update public.messages set read_at = now()
+  where booking_id = bid and read_at is null and sender_role <> my_role;
+end $$;
+grant execute on function public.mark_messages_read(uuid) to authenticated;
+
+-- Live updates in the app (Supabase Realtime)
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end $$;
+
 -- =====================================================================
 -- Row Level Security
 -- =====================================================================
@@ -437,6 +524,7 @@ alter table public.bookings enable row level security;
 alter table public.reviews  enable row level security;
 alter table public.client_reviews enable row level security;
 alter table public.complaints enable row level security;
+alter table public.messages enable row level security;
 
 -- Profiles: you see your own, and a cleaner sees clients who booked them
 create policy "own profile" on public.profiles for select
@@ -492,6 +580,12 @@ create policy "report a problem" on public.complaints for insert to authenticate
 create policy "admin resolves complaints" on public.complaints for update to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
+-- Messages: only the booking's client and cleaner (and the admin, for reports)
+create policy "read booking messages" on public.messages for select to authenticated
+  using (public.can_see_booking(booking_id));
+create policy "send booking messages" on public.messages for insert to authenticated
+  with check (public.can_see_booking(booking_id) and not public.is_admin_only_viewer(booking_id));
+
 -- Column-level permissions: users can't edit ratings, prices or ownership
 revoke update on public.cleaners from anon, authenticated;
 grant update (display_name, bio, hourly_rate, suburb, city, lat, lng, services, years_experience, is_available, work_days, work_start, work_end)
@@ -500,5 +594,6 @@ revoke update on public.bookings from anon, authenticated;
 grant update (status) on public.bookings to authenticated;
 revoke update on public.profiles from anon, authenticated;
 grant update (full_name, phone) on public.profiles to authenticated;
+revoke update, delete on public.messages from anon, authenticated;
 revoke update on public.complaints from anon, authenticated;
 grant update (status, admin_note) on public.complaints to authenticated;

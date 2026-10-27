@@ -4,6 +4,7 @@ import { Logo } from '../components/AppShell'
 import { Notice, TopBar } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { isNativeApp, WEB_URL } from '../lib/platform'
 
 export default function AuthPage() {
   const [params] = useSearchParams()
@@ -29,7 +30,7 @@ export default function AuthPage() {
     } else {
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: { data: { full_name: name.trim() }, emailRedirectTo: window.location.origin + window.location.pathname },
+        options: { data: { full_name: name.trim() }, emailRedirectTo: isNativeApp ? WEB_URL : window.location.origin + window.location.pathname },
       })
       if (error) setError(error.message)
       else if (!data.session) setCheckEmail(true)

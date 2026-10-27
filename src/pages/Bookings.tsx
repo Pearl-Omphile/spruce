@@ -1,4 +1,4 @@
-import { CalendarDays, MapPin, Phone, Star } from 'lucide-react'
+import { CalendarDays, MapPin, MessageCircle, Phone, Star } from 'lucide-react'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { Avatar, Notice, Spinner, StarInput, StatusPill, TopBar } from '../components/ui'
@@ -17,7 +17,7 @@ function useBookings(role: Role, id: string | undefined) {
   const load = useCallback(async () => {
     if (!id) return
     const q = supabase.from('bookings')
-      .select('*, cleaner:cleaners(id, display_name, suburb, city, is_demo), review:reviews(id), client_review:client_reviews(id), complaints(*)')
+      .select('*, cleaner:cleaners(id, display_name, suburb, city, is_demo), review:reviews(id), client_review:client_reviews(id), complaints(*), messages(id, read_at, sender_role)')
       .order('scheduled_date', { ascending: true })
     const { data, error } = await q.eq(role === 'client' ? 'client_id' : 'cleaner_id', id)
     if (error) return setError(error.message)
@@ -125,6 +125,8 @@ function BookingCard({ b, role, onChanged }: { b: Booking; role: Role; onChanged
   const ratedClient = (b.client_review?.length ?? 0) > 0
   const mine = (b.complaints ?? [])[0]
   const isDemo = !!b.cleaner?.is_demo
+  const unread = (b.messages ?? []).filter((m) => !m.read_at && m.sender_role !== role).length
+  const canChat = b.status === 'pending' || b.status === 'accepted' || (b.messages?.length ?? 0) > 0
   const done = async () => { setPanel(null); await onChanged() }
 
   async function setStatus(status: BookingStatus) {
@@ -164,6 +166,14 @@ function BookingCard({ b, role, onChanged }: { b: Booking; role: Role; onChanged
         <p className="mt-3 text-xs muted">When you arrive, tap “I've arrived” and take a photo at the door. You'll take another when you leave. This protects you and the client.</p>
       )}
       {mine && <ComplaintStatus c={mine} />}
+
+      {canChat && (
+        <Link to={`/chat/${b.id}`} className="glass mt-4 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition hover:border-white/30">
+          <MessageCircle size={18} className="text-sand" />
+          <span className="flex-1">{unread ? `${unread} new message${unread > 1 ? 's' : ''} from ${first}` : `Message ${first}`}</span>
+          {unread > 0 && <span className="grid size-6 place-items-center rounded-full bg-sand text-xs font-bold text-deep">{unread}</span>}
+        </Link>
+      )}
 
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
         <span className="text-lg font-bold text-sand">{rand(b.total_price)}</span>

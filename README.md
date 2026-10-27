@@ -2,7 +2,8 @@
 
 **Book a trusted home cleaner near you, or earn as one.** Spruce is an on-demand cleaning marketplace for South Africa, in the spirit of Uber: clients find rated cleaners on a map, book by the hour in Rands, and leave a rating when the job is done. Cleaners set their own rate, services and area, and accept the jobs that suit them.
 
-**Live demo:** https://pearl-omphile.github.io/spruce/
+**Live demo:** https://pearl-omphile.github.io/spruce/  
+**Android app:** [download spruce.apk](https://github.com/Pearl-Omphile/spruce/releases/latest/download/spruce.apk) (iPhone: open the live demo in Safari → Share → Add to Home Screen)
 
 > Portfolio project. Bookings are stored for real, but no cleaner will actually arrive. Demo cleaners auto-accept, so you can try the full flow (book → confirm → mark done → rate) on your own.
 
@@ -25,6 +26,11 @@
 - **Check-in and check-out photos:** the cleaner must take a photo with their phone camera when they arrive and when they leave. Photos go to a private storage bucket; only that booking's client, its cleaner and the admin can view them. A job can't be completed by the cleaner without the check-out photo, and the client can't cancel once the cleaner has arrived.
 - **Two-way ratings:** clients rate cleaners, and cleaners rate clients. Cleaners see a client's rating on job requests before accepting.
 - **Report a problem:** either side can report a booking (no-show, damage, missing item, unsafe behaviour…). Reports go to the admin inbox with the booking's visit photos, and the reporter sees the outcome.
+
+**Chat**
+- Client and cleaner can message each other about a booking, with live updates (Supabase Realtime), "Seen" receipts, unread badges and quick replies
+- Only the two people on the booking can read or post (the admin can read, for handling reports); messages close when a booking is cancelled or declined
+- Demo cleaners send one automatic reply so visitors can try it
 
 **Admin (site owner only)**
 - Reports inbox: read complaints, view the visit photos, reply with a note and mark resolved
@@ -49,6 +55,7 @@
 | Maps | Leaflet + OpenStreetMap (CARTO tiles), no API key needed |
 | Backend | Supabase: Postgres, Auth (email + password), Row Level Security |
 | Hosting | GitHub Pages, deployed by GitHub Actions on every push to `main` |
+| Android | Capacitor 8 wraps the same web app; `.github/workflows/android.yml` builds `spruce.apk` on every push and attaches it to a GitHub release |
 
 ## How the backend is secured
 

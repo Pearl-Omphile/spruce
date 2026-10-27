@@ -62,6 +62,7 @@ export interface Booking {
   review?: { id: string }[]
   client_review?: { id: string }[]
   complaints?: Complaint[]
+  messages?: { id: string; read_at: string | null; sender_role: 'client' | 'cleaner' }[]
   checked_in_at: string | null
   checkin_photo: string | null
   checked_out_at: string | null
