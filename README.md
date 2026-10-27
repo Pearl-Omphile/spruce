@@ -21,6 +21,17 @@
 - When you book a specific cleaner, the date and time pickers grey out the times they can't do
 - The database itself refuses overlapping bookings with a Postgres **exclusion constraint** on `(cleaner_id, time range)`, so two people pressing "Confirm" at the same moment can't both get the slot. Cancelled or declined bookings free the time again.
 
+**Trust and safety**
+- **Check-in and check-out photos:** the cleaner must take a photo with their phone camera when they arrive and when they leave. Photos go to a private storage bucket; only that booking's client, its cleaner and the admin can view them. A job can't be completed by the cleaner without the check-out photo, and the client can't cancel once the cleaner has arrived.
+- **Two-way ratings:** clients rate cleaners, and cleaners rate clients. Cleaners see a client's rating on job requests before accepting.
+- **Report a problem:** either side can report a booking (no-show, damage, missing item, unsafe behaviour…). Reports go to the admin inbox with the booking's visit photos, and the reporter sees the outcome.
+
+**Admin (site owner only)**
+- Reports inbox: read complaints, view the visit photos, reply with a note and mark resolved
+- Stats, new cleaners and sign-ups since your last visit, every booking, and contact details
+- Pause or resume any cleaner listing
+- `is_admin` can only be set from the Supabase SQL editor; `admin_people()` and the admin read policies check it in the database
+
 **Also**
 - Explore tab with a map of cleaners, filter by city, "near me", service, rating or price
 - Cleaner profiles with stats, services, service area and reviews

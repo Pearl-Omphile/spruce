@@ -1,4 +1,4 @@
-import { Banknote, Check, CreditCard, LocateFixed, MapPin } from 'lucide-react'
+import { Banknote, Check, CreditCard, LocateFixed, MapPin, ShieldCheck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { ActionBar, Avatar, Counter, Notice, Spinner, Stars, Steps, TopBar } from '../components/ui'
@@ -376,6 +376,11 @@ export function BookReview() {
           <CreditCard size={20} />
           <span className="flex-1"><span className="block font-semibold">Card in the app</span><span className="block text-xs muted">Coming soon</span></span>
         </div>
+      </div>
+
+      <div className="mt-7 flex gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 text-sm">
+        <ShieldCheck size={20} className="shrink-0 text-ok" />
+        <p className="text-shell/85">For everyone's safety, your cleaner takes a photo when they arrive and when they leave. Only you, your cleaner and Spruce support can see them. If anything goes wrong, you can report it from Bookings.</p>
       </div>
 
       {error && <div className="mt-5"><Notice tone="error">{error}</Notice></div>}

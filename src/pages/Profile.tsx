@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, ChevronRight, Download, LogOut, Smartphone, UserRoundPen } from 'lucide-react'
+import { BriefcaseBusiness, ChevronRight, Download, LogOut, ShieldCheck, Smartphone, UserRoundPen } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, Notice, Spinner } from '../components/ui'
@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { errorText } from '../lib/format'
 import { useInstallPrompt } from '../lib/install'
 import { supabase } from '../lib/supabase'
+import { lastSeen } from './Admin'
 
 function Row({ to, onClick, icon, title, sub, right }: { to?: string; onClick?: () => void; icon: ReactNode; title: string; sub?: string; right?: ReactNode }) {
   const body = (
@@ -27,6 +28,14 @@ export default function Profile() {
   const install = useInstallPrompt()
   const [editing, setEditing] = useState(false)
   const [pending, setPending] = useState(0)
+  const [newCleaners, setNewCleaners] = useState(0)
+
+  // Admin: count real cleaners who joined since you last opened the admin screen
+  useEffect(() => {
+    if (!profile?.is_admin) return
+    supabase.from('cleaners').select('id', { count: 'exact', head: true }).eq('is_demo', false).gt('created_at', lastSeen())
+      .then(({ count }) => setNewCleaners(count ?? 0))
+  }, [profile?.is_admin])
 
   useEffect(() => {
     if (!myCleaner) return
@@ -55,9 +64,22 @@ export default function Profile() {
               <p className="serif truncate text-2xl">{profile?.full_name || 'Your name'}</p>
               <p className="truncate text-sm muted">{user.email}</p>
               {profile?.phone && <p className="text-sm muted">{profile.phone}</p>}
+              {!!profile?.client_rating_count && (
+                <p className="mt-1 text-sm"><span className="text-warn">★</span> <b>{Number(profile.client_rating_avg).toFixed(1)}</b> <span className="muted">your rating from cleaners</span></p>
+              )}
             </div>
           </section>
           {editing && <EditDetails onDone={async () => { setEditing(false); await refresh() }} />}
+
+          {profile?.is_admin && (
+            <>
+              <p className="mb-2 ml-1 mt-7 text-sm font-semibold muted">Owner</p>
+              <div className="glass overflow-hidden rounded-[28px]">
+                <Row to="/admin" icon={<ShieldCheck size={20} />} title="Admin" sub="New cleaners, people and every booking"
+                  right={newCleaners ? <span className="rounded-full bg-sand px-2.5 py-0.5 text-xs font-bold text-deep">{newCleaners} new</span> : undefined} />
+              </div>
+            </>
+          )}
 
           <p className="mb-2 ml-1 mt-7 text-sm font-semibold muted">Cleaner mode</p>
           <div className="glass divide-y divide-white/10 overflow-hidden rounded-[28px]">

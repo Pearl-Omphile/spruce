@@ -1,6 +1,6 @@
 // Spruce service worker: makes the app installable and opens instantly offline.
 // App files are cached; Supabase data and map tiles always go to the network.
-const CACHE = 'spruce-v2'
+const CACHE = 'spruce-v3'
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon-192.png'])))

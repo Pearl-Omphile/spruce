@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     const [p, c] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, phone').eq('id', s.user.id).maybeSingle(),
+      supabase.from('profiles').select('id, full_name, phone, is_admin, client_rating_avg, client_rating_count').eq('id', s.user.id).maybeSingle(),
       supabase.from('cleaners').select('*').eq('user_id', s.user.id).maybeSingle(),
     ])
     setProfile(p.data ?? null)

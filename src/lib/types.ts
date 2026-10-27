@@ -13,6 +13,9 @@ export interface Profile {
   id: string
   full_name: string
   phone: string | null
+  is_admin?: boolean
+  client_rating_avg?: number
+  client_rating_count?: number
 }
 
 export interface Cleaner {
@@ -35,6 +38,7 @@ export interface Cleaner {
   is_demo: boolean
   rating_avg: number
   rating_count: number
+  created_at?: string
 }
 
 export interface Booking {
@@ -54,8 +58,14 @@ export interface Booking {
   status: BookingStatus
   created_at: string
   cleaner?: Pick<Cleaner, 'id' | 'display_name' | 'suburb' | 'city' | 'is_demo'>
-  client?: Pick<Profile, 'full_name' | 'phone'> | null
+  client?: Pick<Profile, 'full_name' | 'phone' | 'client_rating_avg' | 'client_rating_count'> | null
   review?: { id: string }[]
+  client_review?: { id: string }[]
+  complaints?: Complaint[]
+  checked_in_at: string | null
+  checkin_photo: string | null
+  checked_out_at: string | null
+  checkout_photo: string | null
 }
 
 export interface Review {
@@ -72,4 +82,30 @@ export const CITIES: Record<string, [number, number]> = {
   Pretoria: [-25.7746, 28.2085],
   'Cape Town': [-33.9349, 18.4385],
   Durban: [-29.8051, 31.0303],
+}
+
+export type ComplaintCategory = 'no_show' | 'late' | 'damage' | 'missing_item' | 'poor_clean' | 'unsafe' | 'payment' | 'other'
+
+export interface Complaint {
+  id: string
+  booking_id: string
+  raised_by: string
+  raised_as: 'client' | 'cleaner'
+  category: ComplaintCategory
+  details: string
+  status: 'open' | 'resolved'
+  admin_note: string
+  created_at: string
+  resolved_at: string | null
+}
+
+export const COMPLAINT_LABELS: Record<ComplaintCategory, string> = {
+  no_show: "Didn't show up",
+  late: 'Very late',
+  damage: 'Something was damaged',
+  missing_item: 'Something is missing',
+  poor_clean: 'Poor cleaning',
+  unsafe: 'Rude or unsafe behaviour',
+  payment: 'Payment problem',
+  other: 'Something else',
 }

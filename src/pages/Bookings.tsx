@@ -1,7 +1,8 @@
-import { CalendarDays, MapPin, Phone } from 'lucide-react'
+import { CalendarDays, MapPin, Phone, Star } from 'lucide-react'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { Avatar, Notice, Spinner, StarInput, StatusPill, TopBar } from '../components/ui'
+import { CameraCheck, ComplaintStatus, RateClientForm, ReportProblem, VisitTimeline } from '../components/Trust'
 import { useAuth } from '../context/AuthContext'
 import { addonById, serviceById } from '../lib/catalog'
 import { errorText, niceDate, niceTime, rand, todayISO } from '../lib/format'
@@ -16,14 +17,14 @@ function useBookings(role: Role, id: string | undefined) {
   const load = useCallback(async () => {
     if (!id) return
     const q = supabase.from('bookings')
-      .select('*, cleaner:cleaners(id, display_name, suburb, city, is_demo), review:reviews(id)')
+      .select('*, cleaner:cleaners(id, display_name, suburb, city, is_demo), review:reviews(id), client_review:client_reviews(id), complaints(*)')
       .order('scheduled_date', { ascending: true })
     const { data, error } = await q.eq(role === 'client' ? 'client_id' : 'cleaner_id', id)
     if (error) return setError(error.message)
     let rows = (data ?? []) as Booking[]
     if (role === 'cleaner' && rows.length) {
       // Cleaners may read the profiles of clients who booked them (RLS)
-      const { data: profs } = await supabase.from('profiles').select('id, full_name, phone').in('id', [...new Set(rows.map((r) => r.client_id))])
+      const { data: profs } = await supabase.from('profiles').select('id, full_name, phone, client_rating_avg, client_rating_count').in('id', [...new Set(rows.map((r) => r.client_id))])
       rows = rows.map((r) => ({ ...r, client: profs?.find((p) => p.id === r.client_id) ?? null }))
     }
     setItems(rows)
@@ -116,10 +117,15 @@ function Tabs<T extends string>({ value, onChange, options }: { value: T; onChan
 function BookingCard({ b, role, onChanged }: { b: Booking; role: Role; onChanged: () => Promise<void> }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [rating, setRating] = useState(false)
+  const [panel, setPanel] = useState<'rate' | 'rateClient' | 'report' | null>(null)
   const svc = serviceById(b.service)
   const who = role === 'client' ? b.cleaner?.display_name ?? 'Cleaner' : b.client?.full_name || 'Client'
+  const first = who.split(' ')[0]
   const reviewed = (b.review?.length ?? 0) > 0
+  const ratedClient = (b.client_review?.length ?? 0) > 0
+  const mine = (b.complaints ?? [])[0]
+  const isDemo = !!b.cleaner?.is_demo
+  const done = async () => { setPanel(null); await onChanged() }
 
   async function setStatus(status: BookingStatus) {
     setBusy(true); setError(null)
@@ -135,6 +141,13 @@ function BookingCard({ b, role, onChanged }: { b: Booking; role: Role; onChanged
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">{svc?.name ?? b.service} {role === 'client' ? 'with' : 'for'} {who}</p>
           <p className="text-sm muted">{niceDate(b.scheduled_date)} at {niceTime(b.start_time)}, {b.hours} hrs</p>
+          {role === 'cleaner' && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs">
+              {b.client?.client_rating_count
+                ? <><Star size={12} className="fill-warn text-warn" /><b>{Number(b.client.client_rating_avg).toFixed(1)}</b><span className="muted">client rating ({b.client.client_rating_count})</span></>
+                : <span className="muted">New client, no ratings yet</span>}
+            </p>
+          )}
         </div>
         <StatusPill status={b.status} />
       </div>
@@ -146,25 +159,46 @@ function BookingCard({ b, role, onChanged }: { b: Booking; role: Role; onChanged
         {b.notes && <p className="mt-1 rounded-2xl bg-white/5 px-3 py-2">“{b.notes}”</p>}
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
+      <VisitTimeline b={b} />
+      {role === 'cleaner' && b.status === 'accepted' && !b.checked_in_at && (
+        <p className="mt-3 text-xs muted">When you arrive, tap “I've arrived” and take a photo at the door. You'll take another when you leave. This protects you and the client.</p>
+      )}
+      {mine && <ComplaintStatus c={mine} />}
+
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
         <span className="text-lg font-bold text-sand">{rand(b.total_price)}</span>
         <div className="flex flex-wrap justify-end gap-2">
           {role === 'cleaner' && b.status === 'pending' && <>
             <button className="btn-glass !px-4 !py-2 text-sm" disabled={busy} onClick={() => setStatus('declined')}>Decline</button>
             <button className="btn-sand !px-4 !py-2 text-sm" disabled={busy} onClick={() => setStatus('accepted')}>Accept</button>
           </>}
-          {role === 'client' && (b.status === 'pending' || b.status === 'accepted') && (
+          {role === 'cleaner' && b.status === 'accepted' && <CameraCheck b={b} kind={b.checked_in_at ? 'out' : 'in'} onDone={onChanged} />}
+          {role === 'cleaner' && b.status === 'completed' && !ratedClient && panel !== 'rateClient' && (
+            <button className="btn-sand !px-4 !py-2 text-sm" onClick={() => setPanel('rateClient')}>Rate {first}</button>
+          )}
+          {role === 'client' && (b.status === 'pending' || b.status === 'accepted') && !b.checked_in_at && (
             <button className="btn-glass !px-4 !py-2 text-sm" disabled={busy} onClick={() => confirm('Cancel this booking?') && setStatus('cancelled')}>Cancel</button>
           )}
-          {b.status === 'accepted' && <button className="btn-sand !px-4 !py-2 text-sm" disabled={busy} onClick={() => setStatus('completed')}>Mark done</button>}
-          {role === 'client' && b.status === 'completed' && !reviewed && !rating && (
-            <button className="btn-sand !px-4 !py-2 text-sm" onClick={() => setRating(true)}>Rate {who.split(' ')[0]}</button>
+          {/* Demo cleaners can't check out, so the client can close those jobs themselves */}
+          {role === 'client' && b.status === 'accepted' && (isDemo || b.checked_in_at) && (
+            <button className="btn-sand !px-4 !py-2 text-sm" disabled={busy} onClick={() => setStatus('completed')}>Mark done</button>
+          )}
+          {role === 'client' && b.status === 'completed' && !reviewed && panel !== 'rate' && (
+            <button className="btn-sand !px-4 !py-2 text-sm" onClick={() => setPanel('rate')}>Rate {first}</button>
           )}
           {role === 'client' && reviewed && <span className="text-sm font-semibold text-ok">Rated, thank you</span>}
+          {role === 'cleaner' && ratedClient && <span className="text-sm font-semibold text-ok">Client rated</span>}
         </div>
       </div>
+
+      {!mine && b.status !== 'pending' && b.status !== 'declined' && panel !== 'report' && (
+        <button className="mt-3 text-xs font-semibold text-shell/60 underline-offset-4 hover:text-bad hover:underline" onClick={() => setPanel('report')}>Report a problem</button>
+      )}
+
       {error && <div className="mt-3"><Notice tone="error">{error}</Notice></div>}
-      {rating && <RateForm b={b} onDone={async () => { setRating(false); await onChanged() }} onCancel={() => setRating(false)} />}
+      {panel === 'rate' && <RateForm b={b} onDone={done} onCancel={() => setPanel(null)} />}
+      {panel === 'rateClient' && <RateClientForm b={b} onDone={done} onCancel={() => setPanel(null)} />}
+      {panel === 'report' && <ReportProblem b={b} role={role} onDone={done} onCancel={() => setPanel(null)} />}
     </li>
   )
 }
