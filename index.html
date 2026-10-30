@@ -19,6 +19,23 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Safety net: if the app can't start (e.g. a very old phone browser), show why instead of a blank screen
+      (function () {
+        var errs = [];
+        window.addEventListener('error', function (e) { errs.push(e.message || (e.target && e.target.src) || 'load error') }, true);
+        window.addEventListener('unhandledrejection', function (e) { errs.push(String(e.reason)) });
+        setTimeout(function () {
+          var root = document.getElementById('root');
+          if (!root || root.children.length) return;
+          root.innerHTML = '<div style="font-family:system-ui,sans-serif;color:#F4ECDD;padding:48px 28px;max-width:420px;margin:0 auto;line-height:1.5">' +
+            '<h1 style="font-size:28px;margin:0 0 12px">Spruce couldn\u2019t start</h1>' +
+            '<p style="opacity:.8">Your phone\u2019s web engine may be out of date. On Android, open the Play Store and update <b>Android System WebView</b> and <b>Chrome</b>, then reopen Spruce.</p>' +
+            '<p style="margin:24px 0"><a href="https://pixelpearl.site/spruce/" style="display:inline-block;background:#E8D5B5;color:#071C33;padding:12px 22px;border-radius:999px;font-weight:700;text-decoration:none">Open Spruce in the browser</a></p>' +
+            '<p style="opacity:.5;font-size:12px;word-break:break-word">' + (errs.slice(0, 3).join(' | ') || 'No error reported') + ' \u00b7 ' + navigator.userAgent + '</p></div>';
+        }, 8000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

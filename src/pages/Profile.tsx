@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, ChevronRight, Download, KeyRound, LogOut, Share, ShieldCheck, Smartphone, SquarePlus, UserRoundPen } from 'lucide-react'
+import { BriefcaseBusiness, ChevronRight, Download, KeyRound, LogOut, Monitor, Share, ShieldCheck, Smartphone, SquarePlus, UserRoundPen } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, Notice, Spinner } from '../components/ui'
@@ -122,22 +122,21 @@ export default function Profile() {
                   <li className="flex items-center gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-bold">3</span>Choose <SquarePlus size={16} className="text-sand" aria-hidden /> <b>Add to Home Screen</b></li>
                 </ol>
               </div>
+            ) : isAndroid ? (
+              <>
+                <Row onClick={() => { window.location.href = APK_URL }} icon={<Download size={20} />} title="Download for Android" sub="Installs the Spruce app (spruce.apk)" />
+                {install.canPrompt && <Row onClick={install.prompt} icon={<Smartphone size={20} />} title="Add to home screen" sub="Quick install, no download" />}
+              </>
             ) : (
               <>
-                {(isAndroid || !isIOS) && (
-                  <Row onClick={() => { window.location.href = APK_URL }} icon={<Download size={20} />} title="Download for Android" sub="Installs the Spruce app (spruce.apk)" />
-                )}
-                {install.canPrompt ? (
-                  <Row onClick={install.prompt} icon={<Smartphone size={20} />} title="Add to home screen" sub="Quick install, no download" />
-                ) : !isAndroid && (
-                  <div className="flex gap-4 px-4 py-4">
-                    <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sand/15 text-sand"><Smartphone size={20} /></span>
-                    <div className="text-sm">
-                      <p className="font-semibold">On an iPhone?</p>
-                      <p className="mt-1 muted">Open this page in Safari, tap Share, then “Add to Home Screen”.</p>
-                    </div>
+                <div className="flex items-center gap-5 px-4 py-4">
+                  <img src="./get-app-qr.svg" alt="QR code for Spruce" className="size-28 shrink-0 rounded-2xl bg-white p-1.5" />
+                  <div className="text-sm">
+                    <p className="font-semibold">Get Spruce on your phone</p>
+                    <p className="mt-1 muted">Scan with your phone camera. Android phones can download the app; on iPhone, tap Share, then “Add to Home Screen”.</p>
                   </div>
-                )}
+                </div>
+                {install.canPrompt && <Row onClick={install.prompt} icon={<Monitor size={20} />} title="Install on this computer" sub="Opens in its own window, like an app" />}
               </>
             )}
           </div>

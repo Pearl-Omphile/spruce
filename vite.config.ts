@@ -6,5 +6,6 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
-  build: { chunkSizeWarningLimit: 700 },
+  // Older target so the app also runs on phones with an out-of-date Android WebView
+  build: { chunkSizeWarningLimit: 700, target: ['es2020', 'chrome87', 'safari14', 'firefox78'] },
 })
