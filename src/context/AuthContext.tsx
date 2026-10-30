@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { openedFromResetLink, supabase } from '../lib/supabase'
 import type { Cleaner, Profile } from '../lib/types'
 
 interface AuthState {
@@ -41,8 +41,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await load(data.session)
       setLoading(false)
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
+      // Opened a password-reset email: take the person straight to "choose a new password"
+      if (event === 'PASSWORD_RECOVERY' || (openedFromResetLink && event === 'SIGNED_IN')) {
+        window.location.hash = '#/reset-password'
+      }
       // Defer DB calls out of the auth callback (recommended by Supabase)
       setTimeout(() => void load(s), 0)
     })

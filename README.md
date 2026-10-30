@@ -41,6 +41,7 @@
 **Also**
 - Explore tab with a map of cleaners, filter by city, "near me", service, rating or price
 - Cleaner profiles with stats, services, service area and reviews
+- Forgot-password flow: reset link by email, then choose a new password (also "Change password" in Profile)
 - Bookings tab (upcoming / past): cancel, mark done, rate 1–5 stars
 - Cleaner mode: create a profile with your rate, services and map pin; accept or decline job requests
 - **Installable on Android and iPhone** as a web app (manifest, icons, offline-ready service worker)
@@ -52,8 +53,8 @@
 | --- | --- |
 | Frontend | React 19, TypeScript, Vite, installable PWA |
 | Styling | Tailwind CSS v4 |
-| Maps | Leaflet + OpenStreetMap (CARTO tiles), no API key needed |
-| Backend | Supabase: Postgres, Auth (email + password), Row Level Security |
+| Maps | Leaflet + OpenStreetMap tiles, no API key needed |
+| Backend | Supabase: Postgres, Auth (email + password, password reset by email), Row Level Security, Realtime, Storage |
 | Hosting | GitHub Pages, deployed by GitHub Actions on every push to `main` |
 | Android | Capacitor 8 wraps the same web app; `.github/workflows/android.yml` builds `spruce.apk` on every push and attaches it to a GitHub release |
 
@@ -98,7 +99,6 @@ Pushing to `main` builds and deploys to GitHub Pages via `.github/workflows/depl
 ## Ideas for next steps
 
 - Payments with PayFast or Yoco
-- Cleaners rating clients (two-way trust)
-- Real-time job updates with Supabase Realtime
+- Push notifications for new jobs and messages
 - Recurring weekly bookings
 - ID verification badge for cleaners

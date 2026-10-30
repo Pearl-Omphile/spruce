@@ -1,11 +1,11 @@
-import { BriefcaseBusiness, ChevronRight, Download, LogOut, ShieldCheck, Smartphone, UserRoundPen } from 'lucide-react'
+import { BriefcaseBusiness, ChevronRight, Download, KeyRound, LogOut, Share, ShieldCheck, Smartphone, SquarePlus, UserRoundPen } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, Notice, Spinner } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { errorText } from '../lib/format'
 import { useInstallPrompt } from '../lib/install'
-import { APK_URL, isNativeApp } from '../lib/platform'
+import { APK_URL, isAndroid, isIOS, isNativeApp } from '../lib/platform'
 import { supabase } from '../lib/supabase'
 import { lastSeen } from './Admin'
 
@@ -98,6 +98,7 @@ export default function Profile() {
           <p className="mb-2 ml-1 mt-7 text-sm font-semibold muted">Account</p>
           <div className="glass divide-y divide-white/10 overflow-hidden rounded-[28px]">
             <Row onClick={() => setEditing(!editing)} icon={<UserRoundPen size={20} />} title="Edit name and phone" sub="Your cleaner sees these when you book" />
+            <Row to="/reset-password" icon={<KeyRound size={20} />} title="Change password" />
             <Row onClick={signOut} icon={<LogOut size={20} />} title="Sign out" right={<span />} />
           </div>
         </>
@@ -107,19 +108,37 @@ export default function Profile() {
         <>
           <p className="mb-2 ml-1 mt-7 text-sm font-semibold muted">Get the app</p>
           <div className="glass divide-y divide-white/10 overflow-hidden rounded-[28px]">
-            <Row onClick={() => { window.location.href = APK_URL }} icon={<Download size={20} />} title="Download for Android" sub="Installs the Spruce app (spruce.apk)" />
             {install.installed ? (
               <Row icon={<Smartphone size={20} />} title="Spruce is on your home screen" sub="Open it from there" right={<span />} />
-            ) : install.canPrompt ? (
-              <Row onClick={install.prompt} icon={<Smartphone size={20} />} title="Add to home screen" sub="No download needed" />
-            ) : (
-              <div className="flex gap-4 px-4 py-4">
-                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sand/15 text-sand"><Smartphone size={20} /></span>
-                <div className="text-sm">
-                  <p className="font-semibold">iPhone: add to your home screen</p>
-                  <p className="mt-1 muted">Open in Safari, tap Share, then “Add to Home Screen”.</p>
+            ) : isIOS ? (
+              <div className="px-4 py-4">
+                <div className="flex gap-4">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sand/15 text-sand"><Smartphone size={20} /></span>
+                  <div><p className="font-semibold">Add Spruce to your iPhone</p><p className="text-xs muted">Works like an app, no App Store needed</p></div>
                 </div>
+                <ol className="mt-4 flex flex-col gap-2.5 text-sm">
+                  <li className="flex items-center gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-bold">1</span>Open this page in <b>Safari</b></li>
+                  <li className="flex items-center gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-bold">2</span>Tap <Share size={16} className="text-sand" aria-label="Share" /> <b>Share</b> at the bottom</li>
+                  <li className="flex items-center gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-bold">3</span>Choose <SquarePlus size={16} className="text-sand" aria-hidden /> <b>Add to Home Screen</b></li>
+                </ol>
               </div>
+            ) : (
+              <>
+                {(isAndroid || !isIOS) && (
+                  <Row onClick={() => { window.location.href = APK_URL }} icon={<Download size={20} />} title="Download for Android" sub="Installs the Spruce app (spruce.apk)" />
+                )}
+                {install.canPrompt ? (
+                  <Row onClick={install.prompt} icon={<Smartphone size={20} />} title="Add to home screen" sub="Quick install, no download" />
+                ) : !isAndroid && (
+                  <div className="flex gap-4 px-4 py-4">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sand/15 text-sand"><Smartphone size={20} /></span>
+                    <div className="text-sm">
+                      <p className="font-semibold">On an iPhone?</p>
+                      <p className="mt-1 muted">Open this page in Safari, tap Share, then “Add to Home Screen”.</p>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </>

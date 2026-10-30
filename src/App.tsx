@@ -18,6 +18,7 @@ const Profile = lazy(() => import('./pages/Profile'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Admin = lazy(() => import('./pages/Admin'))
 const Chat = lazy(() => import('./pages/Chat'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const book = (step: 'BookService' | 'BookDetails' | 'BookSchedule' | 'BookCleaner' | 'BookReview') =>
   lazy(() => import('./pages/Book').then((m) => ({ default: m[step] })))
 const BookService = book('BookService')
@@ -51,6 +52,7 @@ export default function App() {
               <Route path="auth" element={<AuthPage />} />
               <Route path="admin" element={<Admin />} />
               <Route path="chat/:id" element={<Chat />} />
+              <Route path="reset-password" element={<ResetPassword />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

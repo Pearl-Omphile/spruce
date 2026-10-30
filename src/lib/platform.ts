@@ -8,3 +8,8 @@ export const WEB_URL = 'https://pixelpearl.site/spruce/'
 
 /** Always downloads the newest Android build from the repo's releases. */
 export const APK_URL = 'https://github.com/Pearl-Omphile/spruce/releases/latest/download/spruce.apk'
+
+/** Which phone the visitor is on, so we only offer downloads that work for them. */
+const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+export const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && typeof document !== 'undefined' && 'ontouchend' in document)
+export const isAndroid = /Android/i.test(ua)

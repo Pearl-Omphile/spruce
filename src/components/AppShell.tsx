@@ -1,20 +1,22 @@
 import { CalendarCheck, Compass, Home, UserRound } from 'lucide-react'
-import { Suspense } from 'react'
+import { Suspense, useId } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { REPO_URL } from '../lib/supabase'
 import { Spinner } from './ui'
 
 export function Logo({ size = 30 }: { size?: number }) {
+  // Unique gradient id: the logo appears more than once per page, sometimes inside a hidden panel
+  const gid = `lg-${useId().replace(/:/g, '')}`
   return (
     <span className="inline-flex items-center gap-2.5">
       <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
         <defs>
-          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#F6EFE3" /><stop offset="1" stopColor="#CDB48C" />
           </linearGradient>
         </defs>
         <rect width="64" height="64" rx="20" fill="rgb(255 255 255 / 0.12)" stroke="rgb(255 255 255 / 0.3)" />
-        <path d="M32 13c-6 10-14 17-14 27a14 14 0 0 0 28 0c0-10-8-17-14-27z" fill="url(#lg)" />
+        <path d="M32 13c-6 10-14 17-14 27a14 14 0 0 0 28 0c0-10-8-17-14-27z" fill={`url(#${gid})`} />
         <circle cx="27" cy="39" r="4" fill="#0E2E52" opacity=".55" />
       </svg>
       <span className="serif text-[1.6rem] leading-none text-shell">Spruce</span>
