@@ -2,7 +2,7 @@
 
 **Book a trusted home cleaner near you, or earn as one.** Spruce is an on-demand cleaning marketplace for South Africa, in the spirit of Uber: clients find rated cleaners on a map, book by the hour in Rands, and leave a rating when the job is done. Cleaners set their own rate, services and area, and accept the jobs that suit them.
 
-**Live demo:** https://pearl-omphile.github.io/spruce/  
+**Live demo:** https://pixelpearl.site/spruce/  
 **Android app:** [download spruce.apk](https://github.com/Pearl-Omphile/spruce/releases/latest/download/spruce.apk) (iPhone: open the live demo in Safari → Share → Add to Home Screen)
 
 > Portfolio project. Bookings are stored for real, but no cleaner will actually arrive. Demo cleaners auto-accept, so you can try the full flow (book → confirm → mark done → rate) on your own.
