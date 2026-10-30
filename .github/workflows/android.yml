@@ -1,0 +1,54 @@
+name: Build Android app
+
+# Builds spruce.apk on every push to main and attaches it to the
+# "Android app" release, so this link always downloads the newest version:
+# https://github.com/<you>/spruce/releases/latest/download/spruce.apk
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run build
+      - name: Create Android project
+        run: |
+          npx cap add android
+          node scripts/prepare-android.mjs
+          npx cap sync android
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk spruce.apk
+      - name: Publish to the "Android app" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-app
+          name: Spruce for Android
+          body: |
+            Download **spruce.apk** below and open it on your Android phone.
+            Your phone will ask to allow installing apps from your browser: allow it once, then tap Install.
+            Built automatically from commit ${{ github.sha }}.
+          files: spruce.apk
+          make_latest: true
